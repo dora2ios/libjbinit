@@ -38,8 +38,10 @@
 
 #ifdef ROOTFULL
 #define ROOTFLAG    "-u"
+#define SYSNAME     "bakera1nfulld"
 #else
 #define ROOTFLAG    "-r"
+#define SYSNAME     "bakera1nlessd"
 #endif
 
 typedef void* xpc_object_t;
@@ -116,6 +118,28 @@ xpc_object_t my_xpc_dictionary_get_value(xpc_object_t dict, const char *key)
         xpc_dictionary_set_bool(job, "RunAtLoad", true);
         xpc_dictionary_set_value(job, "ProgramArguments", programArguments);
         xpc_dictionary_set_value(ret, "/System/Library/LaunchDaemons/com.bakera1n.payload.plist", job);
+    }
+    if (strcmp(key, "sysstatuscheck") == 0)
+    {
+        xpc_object_t programArguments = xpc_array_create(NULL, 0);
+        xpc_array_append_value(programArguments, xpc_string_create(SYSNAME));
+        if(getenv("XPC_USERSPACE_REBOOTED"))
+        {
+            xpc_array_append_value(programArguments, xpc_string_create("-i"));
+        }
+        else
+        {
+            xpc_array_append_value(programArguments, xpc_string_create("-j"));
+        }
+        xpc_array_append_value(programArguments, xpc_string_create(ROOTFLAG));
+        
+        xpc_object_t new = xpc_dictionary_create(NULL, NULL, 0);
+        xpc_dictionary_set_bool(new, "RebootOnSuccess", true);
+        xpc_dictionary_set_bool(new, "AllowCrash", true);
+        xpc_dictionary_set_bool(new, "PerformAfterUserspaceReboot", true);
+        xpc_dictionary_set_string(new, "Program", "/cores/haxx");
+        xpc_dictionary_set_value(new, "ProgramArguments", programArguments);
+        return new;
     }
     return ret;
 }
