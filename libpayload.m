@@ -87,7 +87,7 @@ extern const struct _xpc_type_s _xpc_type_dictionary;
 extern const struct _xpc_type_s _xpc_type_error;
 extern const struct _xpc_type_s _xpc_type_string;
 
-#define DYLD_INTERPOSE(_replacment,_replacee) \
+#define DYLD_INTERPOSE(_replacment, _replacee) \
 __attribute__((used)) static struct{ const void* replacment; const void* replacee; } _interpose_##_replacee \
 __attribute__ ((section ("__DATA,__interpose"))) = { (const void*)(unsigned long)&_replacment, (const void*)(unsigned long)&_replacee };
 
@@ -144,6 +144,76 @@ xpc_object_t my_xpc_dictionary_get_value(xpc_object_t dict, const char *key)
     return ret;
 }
 DYLD_INTERPOSE(my_xpc_dictionary_get_value, xpc_dictionary_get_value);
+
+/*
+typedef  void *posix_spawnattr_t;
+typedef  void *posix_spawn_file_actions_t;
+int posix_spawnp(pid_t *pid,
+                 const char *path,
+                 const posix_spawn_file_actions_t *action,
+                 const posix_spawnattr_t *attr,
+                 char *const argv[], char *const envp[]);
+
+int hook_posix_spawnp(pid_t *pid,
+                      const char *path,
+                      const posix_spawn_file_actions_t *action,
+                      const posix_spawnattr_t *attr,
+                      char *const argv[], char *envp[])
+{
+    
+    if(!strcmp(argv[0], "xpcproxy"))
+    {
+        if(!strcmp(argv[1], "com.apple.IDSBlastDoorService"))
+        {
+            int envcnt = 0;
+            while (envp[envcnt] != NULL)
+            {
+                envcnt++;
+            }
+            
+            char** newenvp = malloc((envcnt + 2) * sizeof(char **));
+            int j = 0;
+            char* currentenv = NULL;
+            for (int i = 0; i < envcnt; i++){
+                if (strstr(envp[j], "DYLD_INSERT_LIBRARIES") != NULL)
+                {
+                    currentenv = envp[j];
+                    continue;
+                }
+                newenvp[i] = envp[j];
+                j++;
+            }
+            
+            char *newlib = "/cores/blastdoor.dylib";
+            char *inj = NULL;
+            if(currentenv)
+            {
+                inj = malloc(strlen(currentenv) + 1 + strlen(newlib) + 1);
+                inj[0] = '\0';
+                strcat(inj, currentenv);
+                strcat(inj, ":");
+                strcat(inj, newlib);
+            }
+            else
+            {
+                inj = malloc(strlen("DYLD_INSERT_LIBRARIES=") + strlen(newlib) + 1);
+                inj[0] = '\0';
+                strcat(inj, "DYLD_INSERT_LIBRARIES=");
+                strcat(inj, newlib);
+            }
+            newenvp[j] = inj;
+            newenvp[j + 1] = NULL;
+            
+            int ret = posix_spawnp(pid, path, action, attr, argv, newenvp);
+            return ret;
+        }
+    }
+    
+    int ret = posix_spawnp(pid, path, action, attr, argv, envp);
+    return ret;
+}
+DYLD_INTERPOSE(hook_posix_spawnp, posix_spawnp);
+*/
 
 void SIGBUSHandler(int __unused _) {}
 __attribute__((constructor))
